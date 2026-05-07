@@ -6,61 +6,63 @@ echo        Undercover Game - Stop Script
 echo ========================================
 echo.
 
-set PORTS=3000 5173
-set MAX_ATTEMPTS=5
-set DELAY=2
-
-echo [INFO] Will forcefully stop all processes on ports: %PORTS%
+echo [INFO] Stopping all Undercover Game services...
 echo.
 
-:: Loop to check and terminate processes
-set ATTEMPT=0
-:LOOP
-set /a ATTEMPT+=1
-echo [Attempt %ATTEMPT%/%MAX_ATTEMPTS%] Checking ports...
-
-set PORT_FOUND=0
-
-for %%P in (%PORTS%) do (
-    netstat -ano | findstr ":%%P LISTENING" >nul
-    if %errorlevel% equ 0 (
-        echo [Found] Port %%P is still in use
-        set PORT_FOUND=1
-        
-        :: Get and kill all PIDs using this port
-        for /f "tokens=5" %%A in ('netstat -ano ^| findstr ":%%P LISTENING"') do (
-            echo [Killing] Process PID: %%A
-            taskkill /F /PID %%A >nul 2>&1
-        )
-    )
+:: Kill all node and tsx processes related to the game
+echo [Step 1/3] Killing Node.js processes...
+taskkill /F /IM node.exe >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [OK] Node processes terminated
+) else (
+    echo [INFO] No Node processes found
 )
 
-if %PORT_FOUND% equ 0 (
-    echo [OK] All ports are released
-    goto CLEANUP
+echo.
+echo [Step 2/3] Killing tsx processes...
+taskkill /F /IM tsx.exe >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [OK] TSX processes terminated
+) else (
+    echo [INFO] No TSX processes found
 )
 
-if %ATTEMPT% geq %MAX_ATTEMPTS% (
-    echo [ERROR] Max attempts reached, ports still in use!
-    echo [INFO] Please close windows manually or restart computer
-    goto END
+echo.
+echo [Step 3/3] Waiting for ports to release...
+timeout /t 3 /nobreak >nul
+
+:: Verify ports are released
+echo.
+echo [Verification] Checking port status...
+set PORT_IN_USE=0
+
+netstat -ano | findstr ":3000 LISTENING" >nul
+if %errorlevel% equ 0 (
+    echo [WARNING] Port 3000 still in use
+    set PORT_IN_USE=1
 )
 
-echo [Waiting] Retrying in %DELAY% seconds...
-timeout /t %DELAY% /nobreak >nul
-goto LOOP
+netstat -ano | findstr ":5173 LISTENING" >nul
+if %errorlevel% equ 0 (
+    echo [WARNING] Port 5173 still in use
+    set PORT_IN_USE=1
+)
 
-:CLEANUP
+if %PORT_IN_USE% equ 0 (
+    echo [OK] All ports released
+)
+
 echo.
 echo ========================================
-echo        STOP SUCCESS!
+echo        STOP COMPLETE!
 echo ========================================
 echo.
-echo All services stopped
-echo Ports 3000 and 5173 are released
+echo All Undercover Game services stopped
+echo.
+echo If ports are still in use, you may need to:
+echo   1. Close any open command windows manually
+echo   2. Wait a few more seconds
+echo   3. Restart your computer (last resort)
 echo ========================================
 
-goto END
-
-:END
 pause
