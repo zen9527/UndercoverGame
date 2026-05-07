@@ -1,31 +1,59 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
+import { generatePlayerId } from './utils';
+import { createRoom, addPlayer, broadcastToRoom, setClientWs, getClientWs, getPlayersInRoom, getRoom } from './room';
+import { startGame, confirmWordViewed, startSpeaking, startTimer, nextSpeaker, submitVote, tallyVotes } from './game';
 
 const PORT = 3000;
 
 const httpServer = createServer();
 const wss = new WebSocketServer({ server: httpServer });
 
-// Store connected clients (will be used in room.ts)
-// @ts-ignore - intentionally unused for now
+// Store connected clients
 const clients = new Map<string, WebSocket>(); // playerId -> ws
 
 wss.on('connection', (ws) => {
-  console.log('New client connected');
+  const playerId = generatePlayerId();
+  setClientWs(playerId, ws);
+  
+  console.log('New client connected:', playerId);
   
   ws.on('message', (data) => {
     try {
       const message = JSON.parse(data.toString());
       console.log('Received:', message.event);
-      // Handle message in room.ts
+      
+      // Handle WebSocket events
+      switch (message.event) {
+        case 'joinRoom':
+          // TODO: Implement room join logic
+          break;
+        case 'startGame':
+          startGame(message.data.roomId);
+          break;
+        case 'confirmWordViewed':
+          confirmWordViewed(message.data.roomId, playerId);
+          break;
+        case 'startSpeaking':
+          startSpeaking(message.data.roomId);
+          break;
+        case 'startTimer':
+          startTimer(message.data.roomId, message.data.duration);
+          break;
+        case 'vote':
+          submitVote(message.data.roomId, playerId, message.data.targetPlayerId);
+          break;
+        default:
+          console.log('Unknown event:', message.event);
+      }
     } catch (error) {
       console.error('Invalid message:', error);
     }
   });
   
   ws.on('close', () => {
-    console.log('Client disconnected');
-    // Handle disconnection in room.ts
+    console.log('Client disconnected:', playerId);
+    clients.delete(playerId);
   });
 });
 
