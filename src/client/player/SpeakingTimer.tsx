@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { wsClient } from '../shared/WebSocketClient';
 
 function SpeakingTimer() {
@@ -7,7 +7,7 @@ function SpeakingTimer() {
   const [timerRunning, setTimerRunning] = useState(false);
 
   useEffect(() => {
-    const unsubscribe1 = wsClient.on('currentSpeaker', (data: any) => {
+    const unsubscribe1 = wsClient.on('currentSpeaker', (_data: any) => {
       setIsCurrentSpeaker(true);
     });
 

@@ -1,8 +1,8 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
 import { generatePlayerId } from './utils';
-import { createRoom, addPlayer, broadcastToRoom, setClientWs, getClientWs, getPlayersInRoom, getRoom } from './room';
-import { startGame, confirmWordViewed, startSpeaking, startTimer, nextSpeaker, submitVote, tallyVotes } from './game';
+import { setClientWs } from './room';
+import { startGame, confirmWordViewed, startSpeaking, startTimer, submitVote } from './game';
 
 const PORT = 3000;
 

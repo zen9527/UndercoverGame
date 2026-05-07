@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { wsClient } from '../shared/WebSocketClient';
 import { Player } from '@shared/types';
 
