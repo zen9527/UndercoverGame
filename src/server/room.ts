@@ -96,3 +96,8 @@ export function sendToPlayer(playerId: string, event: string, data: unknown): vo
     ws.send(JSON.stringify({ event, data }));
   }
 }
+
+export function getPlayerNumber(playerId: string): number {
+  const player = players.get(playerId);
+  return player?.playerNumber || 0;
+}
