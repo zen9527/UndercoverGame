@@ -1,35 +1,52 @@
-import { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { wsClient } from '../shared/WebSocketClient';
 
 interface ViewWordProps {
   onViewed: () => void;
 }
 
 function ViewWord({ onViewed }: ViewWordProps) {
+  const [word, setWord] = useState<string>('');
+  const [showWord, setShowWord] = useState(true);
+
   useEffect(() => {
-    // Simulate word being shown after a delay
-    const timer = setTimeout(() => {
-      // Word is shown
-    }, 1000);
-    return () => clearTimeout(timer);
+    const unsubscribe = wsClient.on('wordAssigned', (data: any) => {
+      setWord(data.word);
+    });
+
+    return unsubscribe;
   }, []);
 
-  const handleView = () => {
-    onViewed();
+  const handleConfirm = () => {
+    setShowWord(false);
+    wsClient.send('confirmWordViewed', {});
+    setTimeout(() => {
+      onViewed();
+    }, 1000);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-12 border border-white/10 max-w-md w-full text-center">
-        <h2 className="text-3xl font-bold text-white mb-8">
-          📝 查看词语
-        </h2>
-        <p className="text-gray-400 mb-8">等待显示你的词语...</p>
-        <button
-          onClick={handleView}
-          className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-10 py-4 rounded-xl text-xl font-bold"
-        >
-          我已查看
-        </button>
+        <h2 className="text-2xl font-bold text-white mb-8">🔐 你的词语</h2>
+        
+        {showWord ? (
+          <>
+            <p className="text-6xl font-black bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent mb-8">
+              {word}
+            </p>
+            <button
+              onClick={handleConfirm}
+              className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-10 py-4 rounded-xl text-xl font-bold"
+            >
+              我已查看
+            </button>
+          </>
+        ) : (
+          <div className="text-gray-400 text-lg animate-pulse">
+            词语已隐藏...
+          </div>
+        )}
       </div>
     </div>
   );
