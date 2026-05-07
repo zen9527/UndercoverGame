@@ -188,5 +188,4 @@ MIT License - 自由使用、修改、分发
 **Made with ❤️ for fun parties**
 
 *让每一次聚会都充满欢笑！*
-
 </div>
