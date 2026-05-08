@@ -11,13 +11,13 @@ echo.
 
 :: Kill only processes listening on game ports
 echo [Step 1/2] Killing process on port 3000...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 LISTENING"') do (
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 "') do (
     taskkill /F /PID %%a >nul 2>&1
     if %errorlevel% equ 0 (
         echo [OK] Process on port 3000 terminated (PID: %%a)
     )
 )
-netstat -ano | findstr ":3000 LISTENING" >nul
+netstat -ano | findstr ":3000 " >nul
 if %errorlevel% equ 0 (
     echo [WARNING] Port 3000 still in use
 ) else (
@@ -26,13 +26,13 @@ if %errorlevel% equ 0 (
 
 echo.
 echo [Step 2/2] Killing process on port 5173...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 LISTENING"') do (
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 "') do (
     taskkill /F /PID %%a >nul 2>&1
     if %errorlevel% equ 0 (
         echo [OK] Process on port 5173 terminated (PID: %%a)
     )
 )
-netstat -ano | findstr ":5173 LISTENING" >nul
+netstat -ano | findstr ":5173 " >nul
 if %errorlevel% equ 0 (
     echo [WARNING] Port 5173 still in use
 ) else (

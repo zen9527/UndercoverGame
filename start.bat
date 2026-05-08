@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 title Undercover Game - Start Script
 
 echo ========================================
@@ -8,24 +9,27 @@ echo.
 
 :: Check port availability
 echo [1/4] Checking ports...
-netstat -ano | findstr ":3000 LISTENING" >nul
+
+:: Check port 3000 (match :3000 followed by space to avoid false positives)
+netstat -ano | findstr ":3000 " >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [WARNING] Port 3000 is already in use!
-    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 LISTENING"') do (
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 "') do (
         set PID=%%a
     )
-    echo [INFO] Please run stop.bat first or close the process (PID: %PID%)
+    echo [WARNING] Port 3000 is already in use!
+    echo [INFO] Please run stop.bat first or close the process (PID: !PID!)
     pause
     exit /b 1
 )
 
-netstat -ano | findstr ":5173 LISTENING" >nul
+:: Check port 5173
+netstat -ano | findstr ":5173 " >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [WARNING] Port 5173 is already in use!
-    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 LISTENING"') do (
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 "') do (
         set PID=%%a
     )
-    echo [INFO] Please run stop.bat first or close the process (PID: %PID%)
+    echo [WARNING] Port 5173 is already in use!
+    echo [INFO] Please run stop.bat first or close the process (PID: !PID!)
     pause
     exit /b 1
 )
