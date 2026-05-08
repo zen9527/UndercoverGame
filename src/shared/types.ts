@@ -1,13 +1,13 @@
-// Room types
+// ===== Room =====
 export type RoomStatus = 'CREATED' | 'WAITING' | 'PLAYING' | 'ENDED';
 export type WordTheme = 'RANDOM' | 'FOOD' | 'ANIMAL' | 'OCCUPATION' | 'LOCATION' | 'LIFE' | 'ENTERTAINMENT';
 
 export interface GameConfig {
-  playerCount: number;      // 6-12
+  playerCount: number;      // 4-12
   spyCount: number;         // 1-2
   wordTheme: WordTheme;
-  voteTimeout: number;      // seconds
-  speakTimeout: number;     // seconds
+  voteTimeout: number;      // seconds, 10-120
+  speakTimeout: number;     // seconds, 10-60
 }
 
 export interface Room {
@@ -18,7 +18,7 @@ export interface Room {
   createdAt: Date;
 }
 
-// Player types
+// ===== Player =====
 export type PlayerStatus = 'JOINED' | 'READY' | 'SPEAKING' | 'VOTED' | 'ELIMINATED';
 export type Identity = 'CIVILIAN' | 'SPY';
 
@@ -29,47 +29,74 @@ export interface Player {
   playerNumber: number;
   isHost: boolean;
   status: PlayerStatus;
+  identity?: Identity;  // 只在游戏结束时揭示
   word?: string;
 }
 
-// Game Round types
+// ===== Game State =====
+export type GamePhase =
+  | 'WAITING'           // 等待开始
+  | 'WORD_ASSIGNMENT'   // 词语分配阶段，等待所有人查看
+  | 'SPEAKING'          // 发言阶段
+  | 'VOTING'            // 投票阶段
+  | 'VOTE_RESULT'       // 投票结果（谁被淘汰）
+  | 'GAME_OVER';        // 游戏结束
+
 export interface VoteRecord {
   voterId: string;
   targetId: string;
   timestamp: Date;
 }
 
-export interface GameRound {
-  roundNumber: number;
-  roomId: string;
-  speakingOrder: string[];
-  votes: VoteRecord[];
-  eliminatedPlayer?: string;
-  civilianWord: string;
-  spyWord: string;
-  winner?: 'CIVILIAN' | 'SPY';
+export interface VoteTally {
+  playerId: string;
+  count: number;
 }
 
-// WebSocket events
-export type WSEvent = 
+export interface GameState {
+  phase: GamePhase;
+  currentRound: number;
+  speakingOrder: string[];
+  currentSpeakerIndex: number;
+  votes: VoteRecord[];
+  civilianWord: string;
+  spyWord: string;
+  eliminatedPlayerId?: string;
+  winner?: 'CIVILIAN' | 'SPY';
+  wordViewedPlayerIds: Set<string>;
+  spyPlayerIds: Set<string>;
+}
+
+// ===== WebSocket Events =====
+export type ClientWSEvent =
+  | 'createRoom'
   | 'joinRoom'
+  | 'startGame'
+  | 'confirmWordViewed'
+  | 'startSpeaking'
+  | 'startTimer'
+  | 'vote'
+  | 'startNextRound'
+  | 'endGame';
+
+export type ServerWSEvent =
+  | 'roomCreated'
   | 'roomJoined'
   | 'playerListUpdated'
-  | 'startGame'
+  | 'gameStarted'
   | 'wordAssigned'
-  | 'confirmWordViewed'
   | 'allWordsViewed'
-  | 'startSpeaking'
   | 'currentSpeaker'
   | 'startTimer'
   | 'timerUpdate'
   | 'timerEnded'
-  | 'nextSpeaker'
+  | 'allSpeakingDone'
   | 'startVoting'
-  | 'vote'
   | 'votingProgress'
-  | 'revealResult'
+  | 'voteResult'
+  | 'gameOver'
   | 'hostTransferred'
+  | 'gamePhaseChanged'
   | 'roomError';
 
 export interface WSError {

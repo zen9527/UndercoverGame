@@ -1,42 +1,57 @@
 import { useState, useEffect } from 'react';
 import { wsClient } from '../shared/WebSocketClient';
+import { GamePhase } from '@shared/types';
 
-function GameControl() {
-  const [gamePhase, setGamePhase] = useState<'WAITING' | 'WAITING_FOR_WORDS' | 'SPEAKING' | 'VOTING' | 'RESULT'>('WAITING');
-  const [currentSpeaker, setCurrentSpeaker] = useState<{ playerId: string; playerNumber: number } | null>(null);
+interface GameControlProps {
+  roomId: string;
+  gamePhase: GamePhase;
+  onPhaseChange: (phase: GamePhase) => void;
+}
+
+function GameControl({ roomId, gamePhase, onPhaseChange }: GameControlProps) {
+  const [currentSpeaker, setCurrentSpeaker] = useState<{
+    playerId: string;
+    playerNumber: number;
+    nickname: string;
+  } | null>(null);
 
   useEffect(() => {
-    const unsubscribe1 = wsClient.on('currentSpeaker', (data: any) => {
+    const unsub1 = wsClient.on('currentSpeaker', (data: any) => {
       setCurrentSpeaker(data);
-      setGamePhase('SPEAKING');
     });
 
-    const unsubscribe2 = wsClient.on('timerEnded', () => {
-      setGamePhase('VOTING');
+    const unsub2 = wsClient.on('voteResult', () => {
+      onPhaseChange('VOTE_RESULT');
     });
 
-    const unsubscribe3 = wsClient.on('revealResult', () => {
-      setGamePhase('RESULT');
+    const unsub3 = wsClient.on('gameOver', () => {
+      onPhaseChange('GAME_OVER');
     });
 
     return () => {
-      unsubscribe1();
-      unsubscribe2();
-      unsubscribe3();
+      unsub1();
+      unsub2();
+      unsub3();
     };
-  }, []);
+  }, [onPhaseChange]);
 
   const handleStartGame = () => {
-    wsClient.send('startGame', {});
-    setGamePhase('WAITING_FOR_WORDS');
+    wsClient.send('startGame', { roomId });
+    onPhaseChange('WORD_ASSIGNMENT');
   };
 
-  const handleStartSpeaking = () => {
-    wsClient.send('startSpeaking', {});
+  const handleStartTimer = (duration: number) => {
+    wsClient.send('startTimer', { roomId, duration });
   };
 
-  const handleStartVoting = () => {
-    wsClient.send('startVoting', { timeout: 45 });
+  const handleNextRound = () => {
+    wsClient.send('startNextRound', { roomId });
+    onPhaseChange('SPEAKING');
+  };
+
+  const handleEndGame = () => {
+    wsClient.send('endGame', { roomId });
+    onPhaseChange('GAME_OVER');
   };
 
   return (
@@ -46,10 +61,11 @@ function GameControl() {
         <div className="flex-1 h-0.5 bg-gradient-to-r from-purple-500/50 to-transparent"></div>
       </h2>
 
-      {currentSpeaker && (
+      {currentSpeaker && gamePhase === 'SPEAKING' && (
         <div className="bg-gradient-to-r from-purple-500/30 to-purple-700/30 p-6 rounded-xl border border-purple-500/50 mb-6 text-center">
           <p className="text-gray-300 text-sm uppercase tracking-wider mb-2">当前发言者</p>
           <p className="text-5xl font-black text-purple-400">{currentSpeaker.playerNumber}</p>
+          <p className="text-gray-400 mt-2">{currentSpeaker.nickname}</p>
         </div>
       )}
 
@@ -63,51 +79,46 @@ function GameControl() {
           </button>
         )}
 
-        {gamePhase === 'WAITING_FOR_WORDS' && (
+        {gamePhase === 'WORD_ASSIGNMENT' && (
           <div className="text-gray-400 text-lg">等待所有玩家查看词语...</div>
         )}
 
-        {gamePhase === 'SPEAKING' && (
-          <>
-            <button
-              onClick={handleStartSpeaking}
-              className="bg-gradient-to-r from-green-500 to-green-700 text-white px-8 py-4 rounded-xl text-lg font-bold hover:translate-y-[-3px] transition-all hover:shadow-lg hover:shadow-green-500/50"
-            >
-              开始发言计时
-            </button>
-          </>
-        )}
-
-        {gamePhase === 'VOTING' && (
+        {gamePhase === 'SPEAKING' && currentSpeaker && (
           <button
-            onClick={handleStartVoting}
-            className="bg-gradient-to-r from-red-500 to-red-700 text-white px-8 py-4 rounded-xl text-lg font-bold hover:translate-y-[-3px] transition-all hover:shadow-lg hover:shadow-red-500/50"
+            onClick={() => handleStartTimer(30)}
+            className="bg-gradient-to-r from-green-500 to-green-700 text-white px-8 py-4 rounded-xl text-lg font-bold hover:translate-y-[-3px] transition-all hover:shadow-lg hover:shadow-green-500/50"
           >
-            开始投票
+            开始发言计时
           </button>
         )}
 
-        {gamePhase === 'RESULT' && (
+        {gamePhase === 'VOTE_RESULT' && (
           <>
             <button
-              onClick={() => {
-                wsClient.send('startNextRound', {});
-                setGamePhase('WAITING');
-              }}
+              onClick={handleNextRound}
               className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-8 py-4 rounded-xl text-lg font-bold hover:translate-y-[-3px] transition-all hover:shadow-lg hover:shadow-purple-500/50"
             >
               下一轮
             </button>
             <button
-              onClick={() => {
-                wsClient.send('endGame', {});
-                setGamePhase('WAITING');
-              }}
+              onClick={handleEndGame}
               className="bg-white/10 border-2 border-white/30 text-white px-8 py-4 rounded-xl text-lg font-bold hover:bg-white/20 transition-all"
             >
               结束游戏
             </button>
           </>
+        )}
+
+        {gamePhase === 'GAME_OVER' && (
+          <div className="text-center">
+            <p className="text-gray-400 text-lg mb-4">游戏已结束</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-8 py-4 rounded-xl text-lg font-bold hover:translate-y-[-3px] transition-all hover:shadow-lg hover:shadow-purple-500/50"
+            >
+              返回首页
+            </button>
+          </div>
         )}
       </div>
     </div>

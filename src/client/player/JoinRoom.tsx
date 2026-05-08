@@ -1,24 +1,54 @@
 import { useState } from 'react';
 import { wsClient } from '../shared/WebSocketClient';
+import { joinRoomSchema } from '@shared/schemas';
 
 interface JoinRoomProps {
-  onJoined: () => void;
+  onJoined: (roomId: string, playerId: string) => void;
 }
 
 function JoinRoom({ onJoined }: JoinRoomProps) {
   const [roomId, setRoomId] = useState('');
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleJoin = () => {
-    if (!roomId || !nickname) {
-      setError('请输入房间码和昵称');
+    setError('');
+
+    // Validate input
+    const result = joinRoomSchema.safeParse({ roomId, nickname });
+    if (!result.success) {
+      setError(result.error.issues.map(i => i.message).join(', '));
       return;
     }
-    
-    wsClient.connect();
-    // Will be connected when WebSocket opens
-    onJoined();
+
+    setLoading(true);
+
+    // Listen for success
+    const unsubJoined = wsClient.on('roomJoined', (data: any) => {
+      setLoading(false);
+      unsubJoined();
+      unsubError();
+      onJoined(data.roomId, data.playerId);
+    });
+
+    const unsubError = wsClient.on('roomError', (data: any) => {
+      setLoading(false);
+      unsubJoined();
+      unsubError();
+      setError(data.message || '加入失败');
+    });
+
+    // Connect if needed, then join
+    if (!wsClient.isConnected) {
+      const unsubConnected = wsClient.on('connected', () => {
+        unsubConnected();
+        wsClient.joinRoom(roomId, nickname);
+      });
+      wsClient.connect(nickname, false);
+    } else {
+      wsClient.joinRoom(roomId, nickname);
+    }
   };
 
   return (
@@ -65,9 +95,10 @@ function JoinRoom({ onJoined }: JoinRoomProps) {
 
           <button
             onClick={handleJoin}
-            className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white px-10 py-4 rounded-xl text-xl font-bold hover:translate-y-[-3px] transition-all hover:shadow-lg hover:shadow-purple-500/50"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white px-10 py-4 rounded-xl text-xl font-bold hover:translate-y-[-3px] transition-all hover:shadow-lg hover:shadow-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            加入房间
+            {loading ? '加入中...' : '加入房间'}
           </button>
         </div>
       </div>

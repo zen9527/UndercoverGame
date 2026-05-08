@@ -19,7 +19,7 @@ function ViewWord({ onViewed }: ViewWordProps) {
 
   const handleConfirm = () => {
     setShowWord(false);
-    wsClient.send('confirmWordViewed', {});
+    wsClient.send('confirmWordViewed', { roomId: wsClient.getRoomId() });
     setTimeout(() => {
       onViewed();
     }, 1000);
@@ -29,8 +29,12 @@ function ViewWord({ onViewed }: ViewWordProps) {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-12 border border-white/10 max-w-md w-full text-center">
         <h2 className="text-2xl font-bold text-white mb-8">🔐 你的词语</h2>
-        
-        {showWord ? (
+
+        {!word ? (
+          <div className="text-gray-400 text-lg animate-pulse mb-8">
+            等待词语分配...
+          </div>
+        ) : showWord ? (
           <>
             <p className="text-6xl font-black bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent mb-8">
               {word}

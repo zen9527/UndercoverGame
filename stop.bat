@@ -9,48 +9,39 @@ echo.
 echo [INFO] Stopping all Undercover Game services...
 echo.
 
-:: Kill all node and tsx processes related to the game
-echo [Step 1/3] Killing Node.js processes...
-taskkill /F /IM node.exe >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] Node processes terminated
-) else (
-    echo [INFO] No Node processes found
+:: Kill only processes listening on game ports
+echo [Step 1/2] Killing process on port 3000...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000 LISTENING"') do (
+    taskkill /F /PID %%a >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo [OK] Process on port 3000 terminated (PID: %%a)
+    )
 )
-
-echo.
-echo [Step 2/3] Killing tsx processes...
-taskkill /F /IM tsx.exe >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [OK] TSX processes terminated
-) else (
-    echo [INFO] No TSX processes found
-)
-
-echo.
-echo [Step 3/3] Waiting for ports to release...
-timeout /t 3 /nobreak >nul
-
-:: Verify ports are released
-echo.
-echo [Verification] Checking port status...
-set PORT_IN_USE=0
-
 netstat -ano | findstr ":3000 LISTENING" >nul
 if %errorlevel% equ 0 (
     echo [WARNING] Port 3000 still in use
-    set PORT_IN_USE=1
+) else (
+    echo [OK] Port 3000 released
 )
 
+echo.
+echo [Step 2/2] Killing process on port 5173...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 LISTENING"') do (
+    taskkill /F /PID %%a >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo [OK] Process on port 5173 terminated (PID: %%a)
+    )
+)
 netstat -ano | findstr ":5173 LISTENING" >nul
 if %errorlevel% equ 0 (
     echo [WARNING] Port 5173 still in use
-    set PORT_IN_USE=1
+) else (
+    echo [OK] Port 5173 released
 )
 
-if %PORT_IN_USE% equ 0 (
-    echo [OK] All ports released
-)
+echo.
+echo [Final Step] Waiting for ports to fully release...
+timeout /t 2 /nobreak >nul
 
 echo.
 echo ========================================
