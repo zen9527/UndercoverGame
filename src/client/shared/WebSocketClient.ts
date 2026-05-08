@@ -1,6 +1,7 @@
 import { ServerWSEvent } from '@shared/types';
 
 type MessageHandler = (data: unknown) => void;
+type ConnectionStatusHandler = (status: 'connecting' | 'connected' | 'disconnected' | 'reconnecting') => void;
 
 class WebSocketClient {
   private ws: WebSocket | null = null;
@@ -9,21 +10,44 @@ class WebSocketClient {
   private nickname: string | null = null;
   private isHost = false;
   private eventListeners = new Map<string, Set<MessageHandler>>();
+  private connectionStatusListeners = new Set<ConnectionStatusHandler>();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private _isConnected = false;
+  private _connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
 
   get isConnected(): boolean {
     return this._isConnected;
+  }
+
+  get connectionStatus(): 'connecting' | 'connected' | 'disconnected' | 'reconnecting' {
+    return this._connectionStatus;
+  }
+
+  /**
+   * Subscribe to connection status changes
+   */
+  onConnectionStatus(callback: ConnectionStatusHandler): () => void {
+    this.connectionStatusListeners.add(callback);
+    return () => {
+      this.connectionStatusListeners.delete(callback);
+    };
+  }
+
+  private updateStatus(status: 'connecting' | 'connected' | 'disconnected' | 'reconnecting'): void {
+    this._connectionStatus = status;
+    this.connectionStatusListeners.forEach(cb => cb(status));
   }
 
   connect(nickname?: string, isHost?: boolean): void {
     if (nickname) this.nickname = nickname;
     if (isHost !== undefined) this.isHost = isHost;
 
+    this.updateStatus('connecting');
+    
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname || 'localhost';
-    const port = 3000;
+    const port = 3000; // Use default, environment variable not available in client
 
     this.ws = new WebSocket(`${protocol}//${host}:${port}`);
 
@@ -31,6 +55,13 @@ class WebSocketClient {
       console.log('Connected to server');
       this.reconnectAttempts = 0;
       this._isConnected = true;
+      this.updateStatus('connected');
+      
+      // Re-send join message if we were in a room before reconnect
+      if (this.roomId && this.nickname && !this.isHost && this.reconnectAttempts > 0) {
+        console.log('Rejoining room after reconnect:', this.roomId);
+        this.send('joinRoom', { roomId: this.roomId, nickname: this.nickname });
+      }
     };
 
     this.ws.onmessage = (event) => {
@@ -62,6 +93,7 @@ class WebSocketClient {
     this.ws.onclose = () => {
       console.log('Disconnected from server');
       this._isConnected = false;
+      this.updateStatus('disconnected');
       this.attemptReconnect();
     };
 
@@ -128,23 +160,43 @@ class WebSocketClient {
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnect attempts reached');
+      this.updateStatus('disconnected');
+      
+      // Notify user that reconnection failed
+      const listeners = this.eventListeners.get('reconnectFailed');
+      listeners?.forEach(fn => fn({ maxAttempts: this.maxReconnectAttempts }));
       return;
     }
 
     this.reconnectAttempts++;
+    this.updateStatus('reconnecting');
+    
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+    console.log(`Reconnecting in ${delay}ms... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     setTimeout(() => {
-      console.log(`Reconnecting... (attempt ${this.reconnectAttempts})`);
       this.connect(); // nickname/roomId preserved from last call
     }, delay);
   }
 
+  /**
+   * Manually trigger reconnection (e.g., after user clicks "Reconnect" button)
+   */
+  manualReconnect(): void {
+    if (this._connectionStatus === 'disconnected' && this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts = 0; // Reset attempts for manual reconnect
+      this.connect();
+    }
+  }
+
   disconnect(): void {
     if (this.ws) {
+      // Prevent auto-reconnect when manually disconnecting
+      this.reconnectAttempts = this.maxReconnectAttempts;
       this.ws.close();
       this.ws = null;
       this._isConnected = false;
+      this.updateStatus('disconnected');
     }
   }
 }

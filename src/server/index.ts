@@ -1,5 +1,6 @@
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
+import { config } from './config';
 import { generatePlayerId } from './utils';
 import {
   setClientWs, getClientWs,
@@ -13,7 +14,7 @@ import {
 import { getPlayerNumber } from './room';
 import { clientMessageSchemas, wsMessageSchema } from '@shared/schemas';
 
-const PORT = 3000;
+const PORT = config.server.port;
 
 const httpServer = createServer();
 const wss = new WebSocketServer({ server: httpServer });
@@ -72,6 +73,14 @@ wss.on('connection', (ws) => {
 });
 
 function handleMessage(playerId: string, event: string, data: any): void {
+  // Helper: validate player is in room (except for createRoom/joinRoom)
+  const validatePlayerInRoom = (roomId: string): void => {
+    const player = getPlayer(playerId);
+    if (!player || player.roomId !== roomId) {
+      throw new Error('玩家不在该房间');
+    }
+  };
+
   switch (event) {
     case 'createRoom': {
       const { config, nickname } = data;
@@ -129,18 +138,21 @@ function handleMessage(playerId: string, event: string, data: any): void {
 
     case 'startGame': {
       const { roomId } = data;
+      validatePlayerInRoom(roomId);
       startGame(roomId, playerId);
       break;
     }
 
     case 'confirmWordViewed': {
       const { roomId } = data;
+      validatePlayerInRoom(roomId);
       confirmWordViewed(roomId, playerId);
       break;
     }
 
     case 'startSpeaking': {
       const { roomId } = data;
+      validatePlayerInRoom(roomId);
       const room = getRoom(roomId);
       if (!room || room.hostId !== playerId) throw new Error('只有房主可以操作');
       const state = getGameState(roomId);
@@ -158,24 +170,28 @@ function handleMessage(playerId: string, event: string, data: any): void {
 
     case 'startTimer': {
       const { roomId, duration } = data;
+      validatePlayerInRoom(roomId);
       startTimer(roomId, duration);
       break;
     }
 
     case 'vote': {
       const { roomId, targetPlayerId } = data;
+      validatePlayerInRoom(roomId);
       submitVote(roomId, playerId, targetPlayerId);
       break;
     }
 
     case 'startNextRound': {
       const { roomId } = data;
+      validatePlayerInRoom(roomId);
       startNextRound(roomId, playerId);
       break;
     }
 
     case 'endGame': {
       const { roomId } = data;
+      validatePlayerInRoom(roomId);
       endGame(roomId, playerId);
       break;
     }

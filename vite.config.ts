@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: parseInt(process.env.CLIENT_PORT ?? '5173', 10),
     host: true, // 允许局域网访问
   },
   build: {

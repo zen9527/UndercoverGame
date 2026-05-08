@@ -97,13 +97,29 @@ export function transferHost(roomId: string): string | null {
   if (!room) return null;
 
   const playersInRoom = getPlayersInRoom(roomId);
-  const nextHost = playersInRoom.find(p => p.playerId !== room.hostId && p.status !== 'ELIMINATED');
+  
+  // Priority 1: Find non-eliminated player who is not the current host
+  let nextHost = playersInRoom.find(p => p.playerId !== room.hostId && p.status !== 'ELIMINATED');
+  
+  // Priority 2: If all remaining are eliminated (edge case), find any player
+  if (!nextHost) {
+    nextHost = playersInRoom.find(p => p.playerId !== room.hostId);
+  }
 
   if (nextHost) {
+    const oldHostId = room.hostId;
     room.hostId = nextHost.playerId;
-    nextHost.isHost = true;
+    // Update host flags
+    playersInRoom.forEach(p => {
+      p.isHost = (p.playerId === nextHost.playerId);
+    });
+    
+    console.log(`Host transferred from ${oldHostId} to ${nextHost.playerId} in room ${roomId}`);
     return nextHost.playerId;
   }
+  
+  // No other players left - room will be cleaned up
+  console.log(`No valid host transfer candidates in room ${roomId}`);
   return null;
 }
 
@@ -111,14 +127,33 @@ export function removePlayer(playerId: string): void {
   const player = players.get(playerId);
   if (player) {
     const room = rooms.get(player.roomId);
-    if (room && room.hostId === playerId) {
-      const newHostId = transferHost(player.roomId);
-      if (newHostId) {
-        broadcastToRoom(player.roomId, 'hostTransferred', { newHostId });
+    if (room) {
+      // If host leaves, transfer host first
+      if (room.hostId === playerId) {
+        const newHostId = transferHost(player.roomId);
+        if (newHostId) {
+          broadcastToRoom(player.roomId, 'hostTransferred', { newHostId });
+        } else {
+          // No valid host - clean up the room
+          console.log(`No valid host remaining in room ${player.roomId}, cleaning up`);
+          removeRoom(player.roomId);
+          return;
+        }
       }
     }
+    
+    // Remove player data
     players.delete(playerId);
     clientWs.delete(playerId);
+    
+    // Broadcast updated player list if room still exists
+    const updatedRoom = rooms.get(player.roomId);
+    if (updatedRoom) {
+      broadcastToRoom(player.roomId, 'playerListUpdated', {
+        roomId: player.roomId,
+        players: getPlayersInRoom(player.roomId),
+      });
+    }
   }
 }
 
